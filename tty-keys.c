@@ -677,6 +677,7 @@ tty_keys_next(struct tty *tty)
 		return (0);
 	log_debug("%s: keys are %zu (%.*s)", c->name, len, (int)len, buf);
 
+   if (options_get_number(global_options, "set-clipboard") == 2) {
 	/* Is this a clipboard response? */
 	switch (tty_keys_clipboard(tty, buf, len, &size)) {
 	case 0:		/* yes */
@@ -687,6 +688,7 @@ tty_keys_next(struct tty *tty)
 	case 1:		/* partial */
 		goto partial_key;
 	}
+  }
 
 	/* Is this a device attributes response? */
 	switch (tty_keys_device_attributes(tty, buf, len, &size)) {
