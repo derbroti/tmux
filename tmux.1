@@ -4406,6 +4406,13 @@ The default is on.
 Available pane options are:
 .Pp
 .Bl -tag -width Ds -compact
+.It Xo Ic allow-passthrough
+.Op Ic on | off
+.Xc
+Allow programs in the pane to bypass
+.Nm
+using a terminal escape sequence (\eePtmux;...\ee\e\e).
+.Pp
 .It Xo Ic allow-rename
 .Op Ic on | off
 .Xc
@@ -4585,6 +4592,11 @@ Run when a session is renamed.
 Run when a window is linked into a session.
 .It window-renamed
 Run when a window is renamed.
+.It window-resized
+Run when a window is resized.
+This may be after the
+.Ar client-resized
+hook is run.
 .It window-unlinked
 Run when a window is unlinked from a session.
 .El
@@ -5089,6 +5101,7 @@ The following variables are available, where appropriate:
 .It Li "mouse_word" Ta "" Ta "Word under mouse, if any"
 .It Li "mouse_x" Ta "" Ta "Mouse X position, if any"
 .It Li "mouse_y" Ta "" Ta "Mouse Y position, if any"
+.It Li "next_session_id" Ta "" Ta "Unique session ID for next new session"
 .It Li "origin_flag" Ta "" Ta "Pane origin flag"
 .It Li "pane_active" Ta "" Ta "1 if active pane"
 .It Li "pane_at_bottom" Ta "" Ta "1 if pane is at the bottom of window"
