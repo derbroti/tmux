@@ -59,6 +59,8 @@ static struct tty_key *tty_keys_find1(struct tty_key *, const char *, size_t,
 static struct tty_key *tty_keys_find(struct tty *, const char *, size_t,
 		    size_t *);
 static void	tty_keys_callback(int, short, void *);
+static int	tty_keys_private_csi(struct tty *, const char *, size_t,
+		    size_t *, int);
 static int	tty_keys_extended_key(struct tty *, const char *, size_t,
 		    size_t *, key_code *);
 static int	tty_keys_mouse(struct tty *, const char *, size_t, size_t *,
@@ -87,6 +89,7 @@ static const struct {
 	key_code	key;
 	int	      (*fn)(struct tty *, const char *, size_t, size_t *, int);
 } tty_keys_replies[] = {
+	{ KEYC_REPORT_PRIVATE_CSI, tty_keys_private_csi },
 	{ KEYC_REPORT_CLIPBOARD, tty_keys_clipboard },
 	{ KEYC_REPORT_SYNC, tty_keys_sync },
 	{ KEYC_REPORT_DA, tty_keys_device_attributes },
@@ -1018,6 +1021,73 @@ tty_keys_callback(__unused int fd, __unused short events, void *data)
 		while (tty_keys_next(tty))
 			;
 	}
+}
+
+/*
+ * Handle a private CSI sequence (\033[> ... ~). Returns 0 if consumed
+ * (and forwarded to the pane if appropriate), -1 if not ours, 1 if partial.
+ */
+static int
+tty_keys_private_csi(struct tty *tty, const char *buf, size_t len,
+    size_t *size, int apply)
+{
+	struct client		*c = tty->client;
+	struct window_pane	*wp;
+	size_t				i;
+
+	*size = 0;
+
+	/* Prefix is \033[>. Report partial only while still a prefix. */
+	if (buf[0] != '\033')
+		return (-1);
+	if (len == 1)
+		return (1);
+	if (buf[1] != '[')
+		return (-1);
+	if (len == 2)
+		return (1);
+	if (buf[2] != '>')
+		return (-1);
+	if (len == 3)
+		return (1);
+	/* Scan to the final byte regardless of the '0' marker. */
+	for (i = 3; i < len; i++) {
+		if (buf[i] == '~') {	/* final byte */
+			*size = i + 1;
+			goto found;
+		}
+		if (buf[i] < 0x20 || buf[i] > 0x3f)
+			return (-1);
+	}
+	return (1);	/* ran out of data, still valid so far */
+
+found:
+	log_debug("%s: private CSI %.*s", c->name, (int)*size, buf);
+
+	/* Now the whole sequence is buffered - hand it to tmux intact. */
+	if (buf[3] == '0')
+		return (-1);
+
+	/* Decide whether the pane should see it. */
+	if (c->session == NULL || c->session->curw == NULL)
+		return (0); /* error */
+	wp = c->session->curw->window->active;
+	if (wp == NULL || wp->fd == -1 || wp->event == NULL)
+		return (0); /* error */
+	if (SCREEN_IS_ALTERNATE(wp->screen)) {
+		if (!apply)
+			return (0);
+		bufferevent_write(wp->event, buf, *size);
+		log_debug("%s: private CSI %.*s buf evt written", c->name,
+		    (int)*size, buf);
+		return (0);
+	}
+
+	if (buf[3] == '2') /* allow event but also allow tmux to handle it */
+		return (-1);
+
+	/* Consumed either way - never turns into a key. */
+	return (0);
 }
 
 /*

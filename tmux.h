@@ -420,6 +420,7 @@ enum {
 	KEYC_REPORT_COLOURS,
 	KEYC_REPORT_PALETTE,
 	KEYC_REPORT_WINSZ,
+	KEYC_REPORT_PRIVATE_CSI,	/* local: \033[> ... ~ */
 
 	/* Mouse state. */
 	KEYC_MOUSE, /* unclassified mouse event */
