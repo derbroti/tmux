@@ -1734,6 +1734,23 @@ const struct options_table_entry options_table[] = {
 		  "displaying arrow markers."
 	},
 
+	{ .name = "pane-border-rmark",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,
+	  .default_str = "",
+	  .text = "Character drawn on the right border as OFFSET:CHAR, "
+		  "OFFSET rows above the bottom of the pane."
+	},
+
+    { .name = "pane-border-rmark-style",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,
+	  .default_str = "default",
+	  .flags = OPTIONS_TABLE_IS_STYLE,
+	  .separator = ",",
+	  .text = "Style of the pane-border-rmark character."
+	},
+
 	{ .name = "pane-border-lines",
 	  .type = OPTIONS_TABLE_CHOICE,
 	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,

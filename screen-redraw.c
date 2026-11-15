@@ -87,6 +87,7 @@ enum redraw_phase {
 
 /* Span flags. */
 #define REDRAW_BORDER_IS_ARROW 0x1
+#define REDRAW_BORDER_IS_MARK 0x10
 #define REDRAW_SCROLLBAR_LEFT 0x2
 #define REDRAW_SCROLLBAR_RIGHT 0x4
 #define REDRAW_SCROLLBAR_OVERLAY 0x8
@@ -818,6 +819,27 @@ redraw_mark_pane_borders(struct redraw_build_ctx *bctx, struct window_pane *wp,
 
 	redraw_mark_border_status(bctx, wp, left, right, top, bottom);
 	redraw_mark_border_arrows(bctx, wp, left, right, top, bottom);
+
+	/* pane-border-rmark = "OFFSET:CHAR": mark right border, OFFSET rows above bottom. */
+	{
+		struct options_entry		*o;
+		struct redraw_build_cell	*bc;
+		u_int				 x, y;
+		int				 off = 1;
+
+		o = options_get_only(wp->options, "pane-border-rmark");
+		if (mark_right && o != NULL &&
+		    sscanf(options_get_string(wp->options, "pane-border-rmark"), "%d:",
+		    &off) == 1) {
+			wy = bottom - (1 + off);
+			if (wy > top &&
+			    redraw_window_to_scene(bctx, right, wy, &x, &y)) {
+				bc = redraw_get_build_cell(bctx, x, y);
+				if (bc->data.type == REDRAW_SPAN_BORDER)
+					bc->data.b.flags |= REDRAW_BORDER_IS_MARK;
+			}
+		}
+	}
 }
 
 /*
@@ -955,7 +977,7 @@ redraw_compare_data(struct redraw_build_cell *a, struct redraw_build_cell *b)
 		    ad->b.cell_mask != bd->b.cell_mask ||
 		    ad->b.flags != bd->b.flags)
 			return (0);
-		if (ad->b.flags & REDRAW_BORDER_IS_ARROW)
+		if (ad->b.flags & (REDRAW_BORDER_IS_ARROW|REDRAW_BORDER_IS_MARK))
 			return (0);
 		return (1);
 	case REDRAW_SPAN_STATUS:
@@ -1467,6 +1489,24 @@ redraw_draw_border_span(struct redraw_draw_ctx *dctx,
 	    redraw_data_has_pane(&span->data, dctx->marked))
 		gc.attr ^= GRID_ATTR_REVERSE;
 	redraw_draw_border_arrow(dctx, span, &gc);
+	if (span->data.type == REDRAW_SPAN_BORDER &&
+	    (span->data.b.flags & REDRAW_BORDER_IS_MARK) &&
+	    span->data.b.left_wp != NULL) {
+		const char		*cp;
+		struct utf8_data	*ud;
+
+		cp = options_get_string(span->data.b.left_wp->options, "pane-border-rmark");
+		if ((cp = strchr(cp, ':')) != NULL && cp[1] != '\0') {
+			ud = utf8_fromcstr(cp + 1);
+			if (ud[0].size != 0) {
+				utf8_copy(&gc.data, &ud[0]);
+				gc.attr = 0;
+                style_add(&gc, span->data.b.left_wp->options,
+				    "pane-border-rmark-style", NULL);
+			}
+			free(ud);
+		}
+	}
 
 	if (cell_type == CELL_UD && (dctx->flags & REDRAW_ISOLATES))
 		isolates = 1;
